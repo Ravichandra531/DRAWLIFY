@@ -1,5 +1,6 @@
 import type { Point } from './types';
-import type { CanvasManager } from './CanvasManager';
+import { resizeHandleCursor } from './CanvasManager';
+import type { CanvasManager, ResizeHandle } from './CanvasManager';
 import type { ToolManager } from './ToolManager';
 import type { ShapeStore } from './ShapeStore';
 import type { NetworkManager } from './NetworkManager';
@@ -20,6 +21,15 @@ export class InputHandler {
 
   // Select tool state
   private selectedId: string | null = null;
+
+  // Move state
+  private moveStart: Point | null = null;
+  private moveShapeSnapshot: import('./types').Shape | null = null;
+
+  // Resize state
+  private resizeHandle: ResizeHandle | null = null;
+  private resizeStart: Point | null = null;
+  private resizeShapeSnapshot: import('./types').Shape | null = null;
 
   constructor(
     private canvas: HTMLCanvasElement,
@@ -43,12 +53,12 @@ export class InputHandler {
 
     if (tool === 'text') return;
 
-    // Clear selection when using any non-select tool
     if (tool !== 'select' && this.selectedId) {
       this.selectedId = null;
     }
 
-    if (tool === 'hand') {      this.panStart = { x: e.clientX, y: e.clientY };
+    if (tool === 'hand') {
+      this.panStart = { x: e.clientX, y: e.clientY };
       this.panOrigin = { x: this.canvasManager.panX, y: this.canvasManager.panY };
       this.canvas.style.cursor = 'grabbing';
       return;
@@ -56,11 +66,37 @@ export class InputHandler {
 
     if (tool === 'select') {
       const pt = this.canvasManager.getCanvasCoords(e);
+
+      // Check resize handle first (only when a shape is already selected)
+      if (this.selectedId) {
+        const selectedShape = this.store.get(this.selectedId);
+        if (selectedShape) {
+          const handle = this.canvasManager.hitTestHandle(selectedShape, pt.x, pt.y);
+          if (handle) {
+            this.resizeHandle = handle;
+            this.resizeStart = pt;
+            this.resizeShapeSnapshot = { ...selectedShape } as import('./types').Shape;
+            return; // ← don't fall through to move logic
+          }
+        }
+      }
+
+      // Check if clicking on a shape (for move or new selection)
       const hit = this.canvasManager.hitTestShape(this.store.getAll(), pt.x, pt.y);
-      this.selectedId = hit ? hit.id : null;
+      if (hit) {
+        this.selectedId = hit.id;
+        this.moveStart = pt;
+        this.moveShapeSnapshot = { ...hit } as import('./types').Shape;
+      } else {
+        this.selectedId = null;
+        this.moveStart = null;
+        this.moveShapeSnapshot = null;
+      }
       this.requestRender();
       return;
-    }    this.isDragging = true;
+    }
+
+    this.isDragging = true;
     this.startPoint = this.canvasManager.getCanvasCoords(e);
     this.currentPoint = this.startPoint;
     this.toolManager.getActiveTool()?.onMouseDown?.(this.startPoint, this.store, this.network);
@@ -81,11 +117,44 @@ export class InputHandler {
     }
 
     if (tool === 'select') {
-      // Show pointer cursor when hovering over a shape
       const pt = this.canvasManager.getCanvasCoords(e);
+
+      // Resize drag
+      if (this.resizeHandle && this.resizeStart && this.resizeShapeSnapshot) {
+        const dx = pt.x - this.resizeStart.x;
+        const dy = pt.y - this.resizeStart.y;
+        const resized = this.canvasManager.applyResize(this.resizeShapeSnapshot, this.resizeHandle, dx, dy);
+        this.store.update(resized);
+        this.canvas.style.cursor = resizeHandleCursor(this.resizeHandle);
+        this.requestRender();
+        return;
+      }
+
+      // Move drag
+      if (this.moveStart && this.moveShapeSnapshot && this.selectedId) {
+        const dx = pt.x - this.moveStart.x;
+        const dy = pt.y - this.moveStart.y;
+        const moved = this.applyMove(this.moveShapeSnapshot, dx, dy);
+        this.store.update(moved);
+        this.canvas.style.cursor = 'move';
+        this.requestRender();
+        return;
+      }
+
+      // Hover: check handles first, then shapes
+      if (this.selectedId) {
+        const selectedShape = this.store.get(this.selectedId);
+        if (selectedShape) {
+          const handle = this.canvasManager.hitTestHandle(selectedShape, pt.x, pt.y);
+          if (handle) {
+            this.canvas.style.cursor = resizeHandleCursor(handle);
+            this.requestRender();
+            return;
+          }
+        }
+      }
       const hit = this.canvasManager.hitTestShape(this.store.getAll(), pt.x, pt.y);
       this.canvas.style.cursor = hit ? 'move' : 'default';
-      // Re-render so selection box stays visible
       this.requestRender();
       return;
     }
@@ -113,7 +182,25 @@ export class InputHandler {
       return;
     }
 
-    if (tool === 'select') return;
+    if (tool === 'select') {
+      // Commit resize
+      if (this.resizeHandle && this.selectedId) {
+        const shape = this.store.get(this.selectedId);
+        if (shape) this.network.sendShape(shape);
+      }
+      this.resizeHandle = null;
+      this.resizeStart = null;
+      this.resizeShapeSnapshot = null;
+
+      // Commit move
+      if (this.moveStart && this.selectedId) {
+        const shape = this.store.get(this.selectedId);
+        if (shape) this.network.sendShape(shape);
+      }
+      this.moveStart = null;
+      this.moveShapeSnapshot = null;
+      return;
+    }
 
     if (!this.isDragging) return;
     this.isDragging = false;
@@ -128,6 +215,27 @@ export class InputHandler {
   private onMouseLeave = (): void => {
     this.removeEraserCursor();
   };
+
+  // ── Move helper ───────────────────────────────────────────────────────────
+
+  private applyMove(shape: import('./types').Shape, dx: number, dy: number): import('./types').Shape {
+    switch (shape.type) {
+      case 'rect':
+      case 'diamond':
+        return { ...shape, x: shape.x + dx, y: shape.y + dy };
+      case 'circle':
+        return { ...shape, centerX: shape.centerX + dx, centerY: shape.centerY + dy };
+      case 'arrow':
+      case 'line':
+        return { ...shape, x1: shape.x1 + dx, y1: shape.y1 + dy, x2: shape.x2 + dx, y2: shape.y2 + dy };
+      case 'text':
+        return { ...shape, x: shape.x + dx, y: shape.y + dy };
+      case 'pencil':
+        return { ...shape, startX: shape.startX + dx, startY: shape.startY + dy, endX: shape.endX + dx, endY: shape.endY + dy };
+      default:
+        return shape;
+    }
+  }
 
   // ── Eraser cursor ─────────────────────────────────────────────────────────
 

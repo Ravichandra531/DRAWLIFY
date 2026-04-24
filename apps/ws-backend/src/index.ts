@@ -74,7 +74,7 @@ wss.on("connection", function connection(ws: WebSocket, request: any): void {
 
             if (isNaN(roomId)) return;
 
-            // Broadcast to peers immediately — don't block on the DB write
+            // Broadcast to peers immediately
             users.forEach(u => {
                 if (u.rooms.includes(parsedData.roomId) && u.ws !== ws) {
                     u.ws.send(JSON.stringify({
@@ -85,16 +85,29 @@ wss.on("connection", function connection(ws: WebSocket, request: any): void {
                 }
             });
 
-            // Persist asynchronously — a failure here won't stall the room
-            prisma.chat.create({
-                data: {
-                    message,
-                    roomId,
-                    userId: user.userId
-                }
-            }).catch((err: unknown) => {
-                console.error("[ws] Failed to persist message:", err);
-            });
+            // Persist shapes asynchronously
+            try {
+                const shapes: { id: string; deleted?: boolean; [key: string]: unknown }[] =
+                    JSON.parse(message);
+                const shapeArray = Array.isArray(shapes) ? shapes : [shapes];
+
+                await Promise.all(
+                    shapeArray.map((shape) =>
+                        prisma.shape.upsert({
+                            where: { id: shape.id },
+                            update: { data: shape, deleted: shape.deleted ?? false },
+                            create: {
+                                id: shape.id,
+                                roomId,
+                                data: shape,
+                                deleted: shape.deleted ?? false,
+                            },
+                        })
+                    )
+                );
+            } catch (err) {
+                console.error("[ws] Failed to persist shapes:", err);
+            }
         }
     });
 

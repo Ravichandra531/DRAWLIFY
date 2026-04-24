@@ -1,9 +1,26 @@
 import type { Shape } from './types';
 import { roughRect, roughEllipse, roughDiamond, roughLine, roughArrow, solidFill, hatchFill } from './rough';
 
+export type ResizeHandle =
+  | 'nw' | 'n' | 'ne'
+  | 'w'  |       'e'
+  | 'sw' | 's' | 'se';
+
+/** Standalone helper — safe to import without instantiating CanvasManager */
+export function resizeHandleCursor(handle: ResizeHandle): string {
+  const map: Record<ResizeHandle, string> = {
+    nw: 'nw-resize', n: 'n-resize', ne: 'ne-resize',
+    w:  'w-resize',                  e:  'e-resize',
+    sw: 'sw-resize', s: 's-resize', se: 'se-resize',
+  };
+  return map[handle];
+}
+
+const HANDLE_SIZE = 8;
+const SEL_PAD    = 6;
+
 export class CanvasManager {
   private ctx: CanvasRenderingContext2D;
-  // Pan offset
   public panX = 0;
   public panY = 0;
   public bgColor = '#000000';
@@ -32,27 +49,114 @@ export class CanvasManager {
     ctx.restore();
   }
 
-  /** Draw a dashed selection box around a shape */
+  // ── Selection box + 8 resize handles ────────────────────────────────────────
+
   private drawSelectionBox(ctx: CanvasRenderingContext2D, shape: Shape): void {
-    const pad = 6;
     const bb = this.getBoundingBox(shape);
     if (!bb) return;
+    const { x, y, w, h } = bb;
+    const p = SEL_PAD;
+
     ctx.save();
-    ctx.strokeStyle = '#7c6af7';
+    ctx.strokeStyle = '#555555';
     ctx.lineWidth = 1.5;
     ctx.setLineDash([5, 3]);
-    ctx.strokeRect(bb.x - pad, bb.y - pad, bb.w + pad * 2, bb.h + pad * 2);
-    // Corner handles
+    ctx.strokeRect(x - p, y - p, w + p * 2, h + p * 2);
     ctx.setLineDash([]);
-    ctx.fillStyle = '#7c6af7';
-    const hs = 6;
-    for (const [hx, hy] of [
-      [bb.x - pad, bb.y - pad], [bb.x + bb.w + pad, bb.y - pad],
-      [bb.x - pad, bb.y + bb.h + pad], [bb.x + bb.w + pad, bb.y + bb.h + pad],
-    ]) {
-      ctx.fillRect(hx! - hs / 2, hy! - hs / 2, hs, hs);
+
+    // 8 handles
+    ctx.fillStyle = '#ffffff';
+    ctx.strokeStyle = '#888888';
+    ctx.lineWidth = 1.5;
+    for (const [hx, hy] of this.handlePositions(bb)) {
+      ctx.beginPath();
+      ctx.rect(hx - HANDLE_SIZE / 2, hy - HANDLE_SIZE / 2, HANDLE_SIZE, HANDLE_SIZE);
+      ctx.fill();
+      ctx.stroke();
     }
     ctx.restore();
+  }
+
+  /** Returns [x, y] for each of the 8 handles in order: nw n ne w e sw s se */
+  private handlePositions(bb: { x: number; y: number; w: number; h: number }): [number, number][] {
+    const { x, y, w, h } = bb;
+    const p = SEL_PAD;
+    const l = x - p, r = x + w + p, mx = x + w / 2;
+    const t = y - p, b = y + h + p, my = y + h / 2;
+    return [
+      [l, t], [mx, t], [r, t],
+      [l, my],          [r, my],
+      [l, b],  [mx, b], [r, b],
+    ];
+  }
+
+  /** Hit-test the 8 resize handles of a selected shape. Returns handle name or null. */
+  hitTestHandle(shape: Shape, x: number, y: number): ResizeHandle | null {
+    const bb = this.getBoundingBox(shape);
+    if (!bb) return null;
+    const positions = this.handlePositions(bb);
+    const names: ResizeHandle[] = ['nw', 'n', 'ne', 'w', 'e', 'sw', 's', 'se'];
+    const hit = HANDLE_SIZE / 2 + 2; // slightly larger hit area
+    for (let i = 0; i < positions.length; i++) {
+      const [hx, hy] = positions[i]!;
+      if (Math.abs(x - hx) <= hit && Math.abs(y - hy) <= hit) return names[i]!;
+    }
+    return null;
+  }
+
+  /** Cursor style for a given handle */
+  getHandleCursor(handle: ResizeHandle): string {
+    return resizeHandleCursor(handle);
+  }
+
+  /** Apply a resize delta to a shape, returning the updated shape */
+  applyResize(shape: Shape, handle: ResizeHandle, dx: number, dy: number): Shape {
+    const MIN = 10;
+    switch (shape.type) {
+      case 'rect':
+      case 'diamond': {
+        let { x, y, width, height } = shape;
+        if (handle.includes('w')) { x += dx; width -= dx; }
+        if (handle.includes('e')) { width += dx; }
+        if (handle.includes('n')) { y += dy; height -= dy; }
+        if (handle.includes('s')) { height += dy; }
+        width  = Math.max(MIN, width);
+        height = Math.max(MIN, height);
+        return { ...shape, x, y, width, height };
+      }
+      case 'circle': {
+        let { centerX, centerY, radiusX, radiusY } = shape;
+        if (handle.includes('e')) radiusX = Math.max(MIN / 2, radiusX + dx / 2);
+        if (handle.includes('w')) radiusX = Math.max(MIN / 2, radiusX - dx / 2);
+        if (handle.includes('s')) radiusY = Math.max(MIN / 2, radiusY + dy / 2);
+        if (handle.includes('n')) radiusY = Math.max(MIN / 2, radiusY - dy / 2);
+        // keep center stable for corner handles
+        if (handle === 'se' || handle === 'ne') centerX += dx / 2;
+        if (handle === 'sw' || handle === 'nw') centerX -= dx / 2;
+        if (handle === 'sw' || handle === 'se') centerY += dy / 2;
+        if (handle === 'nw' || handle === 'ne') centerY -= dy / 2;
+        return { ...shape, centerX, centerY, radiusX, radiusY };
+      }
+      case 'arrow':
+      case 'line': {
+        let { x1, y1, x2, y2 } = shape;
+        // treat nw/sw/w as moving start point, ne/se/e as moving end point
+        if (handle === 'nw' || handle === 'sw' || handle === 'w') { x1 += dx; y1 += dy; }
+        if (handle === 'ne' || handle === 'se' || handle === 'e') { x2 += dx; y2 += dy; }
+        if (handle === 'n') { y1 += dy; }
+        if (handle === 's') { y2 += dy; }
+        return { ...shape, x1, y1, x2, y2 };
+      }
+      case 'text': {
+        // Resize text by changing font size
+        let { fontSize } = shape;
+        const delta = (handle.includes('s') || handle.includes('e')) ? (dx + dy) / 2 : -(dx + dy) / 2;
+        fontSize = Math.max(8, Math.round(fontSize + delta));
+        return { ...shape, fontSize };
+      }
+      default:
+        return shape;
+    }
   }
 
   /** Get axis-aligned bounding box for any shape */
@@ -110,7 +214,6 @@ export class CanvasManager {
     switch (shape.type) {
       case 'rect': {
         if (hasFill) {
-          // Build clip path for fill
           ctx.save();
           if (shape.rounded) {
             const r = Math.min(8, shape.width / 4, shape.height / 4);

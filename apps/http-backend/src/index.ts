@@ -118,6 +118,49 @@ app.get("/room/:slug", async (req, res) => {
     }
 });
 
+// ── Shape persistence ──────────────────────────────────────────────────────────
+
+// GET all non-deleted shapes for a room
+app.get("/shapes/:roomId", async (req, res) => {
+    const roomId = Number(req.params.roomId);
+    if (isNaN(roomId)) return res.status(400).json({ message: "Invalid room ID" });
+    try {
+        const shapes = await prisma.shape.findMany({
+            where: { roomId, deleted: false },
+            orderBy: { createdAt: "asc" },
+        });
+        res.json(shapes.map((s) => s.data));
+    } catch (e) {
+        console.error("Error fetching shapes:", e);
+        res.status(500).json({ message: "Error fetching shapes" });
+    }
+});
+
+// POST upsert a batch of shapes (called by WS backend after broadcast)
+app.post("/shapes/:roomId", middleware, async (req, res) => {
+    const roomId = Number(req.params.roomId);
+    if (isNaN(roomId)) return res.status(400).json({ message: "Invalid room ID" });
+
+    const shapes: { id: string; deleted?: boolean; [key: string]: unknown }[] = req.body;
+    if (!Array.isArray(shapes)) return res.status(400).json({ message: "Expected array of shapes" });
+
+    try {
+        await Promise.all(
+            shapes.map((shape) =>
+                prisma.shape.upsert({
+                    where: { id: shape.id },
+                    update: { data: shape, deleted: shape.deleted ?? false },
+                    create: { id: shape.id, roomId, data: shape, deleted: shape.deleted ?? false },
+                })
+            )
+        );
+        res.json({ ok: true });
+    } catch (e) {
+        console.error("Error upserting shapes:", e);
+        res.status(500).json({ message: "Error saving shapes" });
+    }
+});
+
 app.listen(3001, () => {
     console.log("Server is running on port 3001");
 });
