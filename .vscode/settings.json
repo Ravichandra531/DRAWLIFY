@@ -1,0 +1,10 @@
+{
+  "eslint.workingDirectories": [
+    {
+      "mode": "auto"
+    }
+  ],
+  "postman.settings.dotenv-detection-notification-visibility": false,
+  "git.ignoreLimitWarning": true,
+  "kiroAgent.configureMCP": "Disabled"
+}
