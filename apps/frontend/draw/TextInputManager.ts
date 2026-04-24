@@ -44,16 +44,15 @@ export class TextInputManager {
 
     e.preventDefault(); // stop canvas from stealing focus
 
-    const rect = this.canvas.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
+    // Canvas-space coords (pan-adjusted) — used for shape storage and hit-testing
+    const canvasCoords = this.canvasManager.getCanvasCoords(e);
 
     // Check if the click landed on an existing text shape
-    const hit = this.canvasManager.hitTestText(this.store.getAll(), x, y);
+    const hit = this.canvasManager.hitTestText(this.store.getAll(), canvasCoords.x, canvasCoords.y);
     if (hit) {
-      this.openForEdit(hit, e.clientX, e.clientY);
+      this.openForEdit(hit);
     } else {
-      this.openNew(x, y, e.clientX, e.clientY);
+      this.openNew(canvasCoords.x, canvasCoords.y, e.clientX, e.clientY);
     }
   };
 
@@ -68,7 +67,7 @@ export class TextInputManager {
 
   // ── Open a textarea pre-filled with an existing shape's text ─────────────────
 
-  private openForEdit(shape: TextShape, clientX: number, clientY: number): void {
+  private openForEdit(shape: TextShape): void {
     const rect = this.canvas.getBoundingClientRect();
     this.activeX = shape.x;
     this.activeY = shape.y;
@@ -79,7 +78,10 @@ export class TextInputManager {
     this.store.remove(shape.id);
     this.canvasManager.render(this.store.getAll());
 
-    this.showTextarea(rect.left + shape.x, rect.top + shape.y, shape.text);
+    // Convert canvas-space coords back to screen coords for textarea positioning
+    const screenX = rect.left + shape.x + this.canvasManager.panX;
+    const screenY = rect.top + shape.y + this.canvasManager.panY;
+    this.showTextarea(screenX, screenY, shape.text);
   }
 
   // ── Core textarea creation ────────────────────────────────────────────────────

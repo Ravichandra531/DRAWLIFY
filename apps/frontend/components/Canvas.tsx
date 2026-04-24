@@ -40,30 +40,40 @@ export function Canvas({ roomId, socket }: { roomId: string; socket: WebSocket }
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const gameRef   = useRef<Game | null>(null);
   const [selectedTool, setSelectedTool] = useState<ToolType>('rect');
-  const [dimensions, setDimensions]     = useState({ width: 0, height: 0 });
   const [style, setStyle]               = useState<ShapeStyle>({ ...activeStyle });
   const [darkMode, setDarkMode]         = useState(true);
 
   // Sync tool to game
   useEffect(() => { gameRef.current?.setTool(selectedTool); }, [selectedTool]);
 
-  // Window resize
+  // Init game once on mount
   useEffect(() => {
-    const update = () => setDimensions({ width: window.innerWidth, height: window.innerHeight });
-    update();
-    window.addEventListener('resize', update);
-    return () => window.removeEventListener('resize', update);
-  }, []);
+    const canvas = canvasRef.current;
+    if (!canvas) return;
 
-  // Init game
-  useEffect(() => {
-    if (!canvasRef.current || dimensions.width === 0) return;
-    const g = new Game(canvasRef.current, roomId, socket);
+    // Set initial canvas size
+    canvas.width  = window.innerWidth;
+    canvas.height = window.innerHeight;
+
+    const g = new Game(canvas, roomId, socket);
     g.setTool(selectedTool);
     gameRef.current = g;
-    return () => { g.destroy(); gameRef.current = null; };
+
+    // Handle resize by resizing the canvas element directly (no re-mount)
+    const onResize = () => {
+      canvas.width  = window.innerWidth;
+      canvas.height = window.innerHeight;
+      g.forceRender();
+    };
+    window.addEventListener('resize', onResize);
+
+    return () => {
+      window.removeEventListener('resize', onResize);
+      g.destroy();
+      gameRef.current = null;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dimensions.width, dimensions.height]);
+  }, []);
 
   // When theme changes, update canvas background and default stroke color
   useEffect(() => {
@@ -89,8 +99,6 @@ export function Canvas({ roomId, socket }: { roomId: string; socket: WebSocket }
     setStyle(s => ({ ...s, ...patch }));
   }, []);
 
-  if (dimensions.width === 0) return null;
-
   const bg           = darkMode ? '#000000' : '#ffffff';
   const panelBg      = darkMode ? '#1a1a1a' : '#f8f8f8';
   const panelBorder  = darkMode ? '#333333' : '#e2e2e2';
@@ -105,8 +113,6 @@ export function Canvas({ roomId, socket }: { roomId: string; socket: WebSocket }
     <div className="relative w-screen h-screen overflow-hidden" style={{ background: bg }}>
       <canvas
         ref={canvasRef}
-        width={dimensions.width}
-        height={dimensions.height}
         className="block"
         style={{
           cursor: selectedTool === 'hand' ? 'grab' : selectedTool === 'select' ? 'default' : selectedTool === 'eraser' ? 'none' : 'crosshair',
