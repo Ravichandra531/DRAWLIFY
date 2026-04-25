@@ -23,7 +23,7 @@ services:
   ws-backend:
     build:
       context: .
-      dockerfile: apps/ws-backend/Dockerfile
+      dockerfile: Docker/Dockerfile.ws
     container_name: drawlify-ws
     restart: unless-stopped
     ports:
