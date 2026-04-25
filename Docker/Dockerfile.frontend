@@ -6,6 +6,8 @@ RUN npm install -g pnpm@9.0.0
 
 COPY . .
 
+ENV PRISMA_SKIP_POSTINSTALL_GENERATE=1
+
 RUN pnpm install --frozen-lockfile
 
 RUN pnpm --filter @repo/db exec npx prisma generate
