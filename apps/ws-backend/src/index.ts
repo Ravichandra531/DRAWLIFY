@@ -1,6 +1,6 @@
 import { WebSocket, WebSocketServer } from "ws";
 import jwt from "jsonwebtoken";
-import { prisma } from "@repo/db";
+import { prisma, Prisma } from "@repo/db";
 import "dotenv/config";
 
 import { JWT_SECRET } from "@repo/backend-common/config";
@@ -95,11 +95,11 @@ wss.on("connection", function connection(ws: WebSocket, request: any): void {
                     shapeArray.map((shape) =>
                         prisma.shape.upsert({
                             where: { id: shape.id },
-                            update: { data: shape, deleted: shape.deleted ?? false },
+                            update: { data: shape as Prisma.InputJsonValue, deleted: shape.deleted ?? false },
                             create: {
                                 id: shape.id,
                                 roomId,
-                                data: shape,
+                                data: shape as Prisma.InputJsonValue,
                                 deleted: shape.deleted ?? false,
                             },
                         })
