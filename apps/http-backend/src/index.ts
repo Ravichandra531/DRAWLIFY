@@ -6,7 +6,7 @@ import cors from "cors";
 import { JWT_SECRET } from "@repo/backend-common/config";
 import { middleware } from "./middleware.js";
 import { CreateRoomSchema, SignUpSchema, LoginSchema } from "@repo/common/types";
-import { prisma } from "@repo/db";
+import { prisma, Prisma } from "@repo/db";
 
 const app = express();
 
@@ -149,8 +149,8 @@ app.post("/shapes/:roomId", middleware, async (req, res) => {
             shapes.map((shape) =>
                 prisma.shape.upsert({
                     where: { id: shape.id },
-                    update: { data: shape, deleted: shape.deleted ?? false },
-                    create: { id: shape.id, roomId, data: shape, deleted: shape.deleted ?? false },
+                    update: { data: shape as Prisma.InputJsonValue, deleted: shape.deleted ?? false },
+                    create: { id: shape.id, roomId, data: shape as Prisma.InputJsonValue, deleted: shape.deleted ?? false },
                 })
             )
         );
