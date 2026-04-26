@@ -12,12 +12,11 @@ const app = express();
 
 app.use(express.json());
 app.use(cors({
-  origin: [
-    'https://drawlify-frontend.vercel.app',
-    'http://localhost:3000',
-  ],
-  credentials: true,
+  origin: '*',
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
 }));
+app.options('*', cors());
 
 app.post("/signup", async (req, res) => {
     const parsedData = SignUpSchema.safeParse(req.body);
