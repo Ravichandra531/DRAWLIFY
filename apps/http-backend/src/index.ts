@@ -49,18 +49,18 @@ if (GOOGLE_CLIENT_ID && GOOGLE_CLIENT_SECRET) {
         const googleId = profile.id;
 
         // Find or create user
-        let user = await prisma.user.findFirst({ where: { googleId } });
+        let user = await prisma.user.findFirst({ where: { googleId: googleId } });
         if (!user) {
           user = await prisma.user.findFirst({ where: { email } });
           if (user) {
             // Link Google to existing email account
-            user = await prisma.user.update({ where: { id: user.id }, data: { googleId, photo } });
+            user = await prisma.user.update({ where: { id: user.id }, data: { googleId: googleId, photo } });
           } else {
             // Create new user
             const username = (profile.displayName || email.split("@")[0] || "user")
               .toLowerCase().replace(/\s+/g, "_").slice(0, 20);
             user = await prisma.user.create({
-              data: { email, username, photo, googleId, password: null },
+              data: { email, username, photo, googleId: googleId, password: "" },
             });
           }
         }

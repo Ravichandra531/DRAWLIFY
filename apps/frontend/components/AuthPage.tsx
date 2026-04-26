@@ -41,7 +41,10 @@ export function AuthPage({ isSignin }: AuthPageProps) {
                 localStorage.setItem("token", response.data.token);
                 router.push("/dashboard");
             } else {
-                router.push("/signin");
+                // After signup, auto-login and go straight to dashboard
+                const loginRes = await axios.post(`${BACKEND_URL}/login`, { username, password });
+                localStorage.setItem("token", loginRes.data.token);
+                router.push("/dashboard");
             }
         } catch (err: unknown) {
             if (axios.isAxiosError(err)) {
