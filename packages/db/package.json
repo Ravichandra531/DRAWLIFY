@@ -10,9 +10,9 @@
     }
   },
   "scripts": {
-    "postinstall": "prisma generate",
+    "postinstall": "prisma generate --schema=./prisma/schema.prisma",
     "generate": "prisma generate",
-    "build": "prisma generate && tsc",
+    "build": "prisma generate --schema=./prisma/schema.prisma && tsc",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "devDependencies": {
