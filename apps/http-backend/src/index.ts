@@ -3,6 +3,9 @@ import express from "express";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";
 import cors from "cors";
+import session from "express-session";
+import passport from "passport";
+import { Strategy as GoogleStrategy } from "passport-google-oauth20";
 import { JWT_SECRET } from "@repo/backend-common/config";
 import { middleware } from "./middleware.js";
 import { CreateRoomSchema, SignUpSchema, LoginSchema } from "@repo/common/types";
@@ -17,10 +20,85 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization'],
 }));
 
+app.use(session({
+  secret: JWT_SECRET,
+  resave: false,
+  saveUninitialized: false,
+}));
+
+app.use(passport.initialize());
+app.use(passport.session());
+
+// ── Google OAuth Strategy ──────────────────────────────────────────────────────
+
+const GOOGLE_CLIENT_ID     = process.env.GOOGLE_CLIENT_ID || "";
+const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET || "";
+const FRONTEND_URL         = process.env.FRONTEND_URL || "http://localhost:3000";
+
+if (GOOGLE_CLIENT_ID && GOOGLE_CLIENT_SECRET) {
+  passport.use(new GoogleStrategy(
+    {
+      clientID:     GOOGLE_CLIENT_ID,
+      clientSecret: GOOGLE_CLIENT_SECRET,
+      callbackURL:  `${process.env.BACKEND_URL || "http://localhost:3001"}/auth/google/callback`,
+    },
+    async (_accessToken, _refreshToken, profile, done) => {
+      try {
+        const email    = profile.emails?.[0]?.value || "";
+        const photo    = profile.photos?.[0]?.value || "";
+        const googleId = profile.id;
+
+        // Find or create user
+        let user = await prisma.user.findFirst({ where: { googleId } });
+        if (!user) {
+          user = await prisma.user.findFirst({ where: { email } });
+          if (user) {
+            // Link Google to existing email account
+            user = await prisma.user.update({ where: { id: user.id }, data: { googleId, photo } });
+          } else {
+            // Create new user
+            const username = (profile.displayName || email.split("@")[0] || "user")
+              .toLowerCase().replace(/\s+/g, "_").slice(0, 20);
+            user = await prisma.user.create({
+              data: { email, username, photo, googleId, password: null },
+            });
+          }
+        }
+        return done(null, user);
+      } catch (err) {
+        return done(err as Error);
+      }
+    }
+  ));
+}
+
+passport.serializeUser((user: any, done) => done(null, user.id));
+passport.deserializeUser(async (id: string, done) => {
+  const user = await prisma.user.findUnique({ where: { id } });
+  done(null, user);
+});
+
+// ── Google OAuth Routes ────────────────────────────────────────────────────────
+
+app.get("/auth/google",
+  passport.authenticate("google", { scope: ["profile", "email"] })
+);
+
+app.get("/auth/google/callback",
+  passport.authenticate("google", { failureRedirect: `${FRONTEND_URL}/signin?error=google_failed` }),
+  (req, res) => {
+    const user = req.user as any;
+    const token = jwt.sign({ userId: user.id }, JWT_SECRET);
+    // Redirect to frontend with token
+    res.redirect(`${FRONTEND_URL}/auth/callback?token=${token}`);
+  }
+);
+
 app.post("/signup", async (req, res) => {
     const parsedData = SignUpSchema.safeParse(req.body);
     if (!parsedData.success) {
-        return res.status(400).json({ message: "Invalid input" });
+        const errors = parsedData.error.issues.map((e: {message: string}) => e.message).join(", ");
+        return res.status(400).json({ message: errors });
     }
 
     try {
@@ -30,12 +108,19 @@ app.post("/signup", async (req, res) => {
                 username: parsedData.data.username,
                 password: hashedPassword,
                 email: parsedData.data.email,
-                photo: "" // Schema requires photo, adding empty string for now
+                photo: ""
             }
         });
         res.status(201).json({ userId: user.id });
-    } catch (e) {
+    } catch (e: any) {
         console.error("Signup error:", e);
+        // Prisma unique constraint violation
+        if (e?.code === 'P2002') {
+            const field = e?.meta?.target?.[0];
+            if (field === 'email') return res.status(400).json({ message: "Email is already registered" });
+            if (field === 'username') return res.status(400).json({ message: "Username is already taken" });
+            return res.status(400).json({ message: "Account already exists" });
+        }
         res.status(500).json({ message: "Error creating user", error: String(e) });
     }
 });
@@ -43,22 +128,25 @@ app.post("/signup", async (req, res) => {
 app.post("/login", async (req, res) => {
     const parsedData = LoginSchema.safeParse(req.body);
     if (!parsedData.success) {
-        return res.status(400).json({ message: "Invalid input" });
+        const errors = parsedData.error.issues.map((e: {message: string}) => e.message).join(", ");
+        return res.status(400).json({ message: errors });
     }
 
     const user = await prisma.user.findFirst({
-        where: {
-            username: parsedData.data.username
-        }
+        where: { username: parsedData.data.username }
     });
 
     if (!user) {
-        return res.status(403).send("Invalid credentials");
+        return res.status(403).json({ message: "No account found with that username" });
+    }
+
+    if (!user.password) {
+        return res.status(403).json({ message: "This account uses Google sign-in. Please use the Google button." });
     }
 
     const isPasswordValid = await bcrypt.compare(parsedData.data.password, user.password);
     if (!isPasswordValid) {
-        return res.status(403).send("Invalid credentials");
+        return res.status(403).json({ message: "Incorrect password" });
     }
 
     const token = jwt.sign({ userId: user.id }, JWT_SECRET);
