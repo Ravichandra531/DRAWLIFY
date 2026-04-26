@@ -1,0 +1,7 @@
+{
+  "framework": "nextjs",
+  "rootDirectory": "apps/frontend",
+  "installCommand": "corepack enable && corepack prepare pnpm@9.0.0 --activate && pnpm install --frozen-lockfile",
+  "buildCommand": "pnpm run build --filter=frontend...",
+  "outputDirectory": "apps/frontend/.next"
+}
