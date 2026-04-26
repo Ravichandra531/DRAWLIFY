@@ -199,6 +199,4 @@ The canvas engine lives in `apps/frontend/draw/` and is split into focused class
 - **`ToolManager`** — active tool registry
 - **`Tool`** — individual tool implementations (rect, circle, arrow, etc.)
 
-## License
 
-MIT
