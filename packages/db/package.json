@@ -10,6 +10,7 @@
     }
   },
   "scripts": {
+    "postinstall": "prisma generate",
     "generate": "prisma generate",
     "build": "prisma generate && tsc",
     "test": "echo \"Error: no test specified\" && exit 1"
