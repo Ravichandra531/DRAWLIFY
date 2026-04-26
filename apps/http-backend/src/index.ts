@@ -35,7 +35,8 @@ app.post("/signup", async (req, res) => {
         });
         res.status(201).json({ userId: user.id });
     } catch (e) {
-        res.status(500).json({ message: "Error creating user" });
+        console.error("Signup error:", e);
+        res.status(500).json({ message: "Error creating user", error: String(e) });
     }
 });
 
