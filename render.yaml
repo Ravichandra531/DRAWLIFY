@@ -1,0 +1,40 @@
+services:
+  - name: drawlify-http
+    type: web
+    runtime: docker
+    dockerfilePath: apps/http-backend/Dockerfile
+    dockerContext: .
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: NODE_ENV
+        value: production
+
+  - name: drawlify-ws
+    type: web
+    runtime: docker
+    dockerfilePath: apps/ws-backend/Dockerfile
+    dockerContext: .
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: NODE_ENV
+        value: production
+
+  - name: drawlify-frontend
+    type: web
+    runtime: docker
+    dockerfilePath: apps/frontend/Dockerfile
+    dockerContext: .
+    dockerBuildArgs:
+      - key: NEXT_PUBLIC_HTTP_BACKEND
+        value: https://drawlify-http.onrender.com
+      - key: NEXT_PUBLIC_WS_URL
+        value: wss://drawlify-ws.onrender.com
+    envVars:
+      - key: NODE_ENV
+        value: production
