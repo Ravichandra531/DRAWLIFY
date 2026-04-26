@@ -16,7 +16,6 @@ app.use(cors({
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
 }));
-app.options('*', cors());
 
 app.post("/signup", async (req, res) => {
     const parsedData = SignUpSchema.safeParse(req.body);
