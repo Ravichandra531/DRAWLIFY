@@ -1,135 +1,204 @@
-# Turborepo starter
+# Drawlify
 
-This Turborepo starter is maintained by the Turborepo core team.
+A real-time collaborative whiteboard built with Next.js, WebSockets, and Rough.js. Draw, sketch, and collaborate with your team on an infinite canvas.
 
-## Using this example
+![Preview](apps/frontend/public/preview.png)
 
-Run the following command:
+## Features
 
-```sh
-npx create-turbo@latest
-```
+- **Real-time collaboration** — multiple users can draw together, changes sync instantly via WebSocket
+- **Hand-drawn feel** — shapes rendered with Rough.js for a natural sketchy look
+- **Shape tools** — rectangle, diamond, ellipse, arrow, line, pencil, text, eraser
+- **Select & resize** — click to select any shape, drag handles to resize
+- **Style panel** — stroke color, fill color, stroke width, roughness
+- **Dark / light mode** — toggle between themes
+- **Pan & zoom** — hand tool to navigate the infinite canvas
+- **Persistent canvas** — shapes saved to PostgreSQL, restored on rejoin
+- **Auth** — email/password signup + Google OAuth
+- **Keyboard shortcuts** — `1-0` to switch tools
 
-## What's inside?
+## Tech Stack
 
-This Turborepo includes the following packages/apps:
+| Layer | Technology |
+|---|---|
+| Frontend | Next.js 16, React 19, Tailwind CSS, Framer Motion |
+| Canvas | HTML5 Canvas, Rough.js |
+| Real-time | WebSocket (ws) |
+| HTTP API | Express 5 |
+| Database | PostgreSQL (Neon) via Prisma 7 |
+| Auth | JWT + Google OAuth (Passport.js) |
+| Monorepo | Turborepo + pnpm workspaces |
+| Deployment | Vercel (frontend), Render (backends) |
 
-### Apps and Packages
-
-- `docs`: a [Next.js](https://nextjs.org/) app
-- `web`: another [Next.js](https://nextjs.org/) app
-- `@repo/ui`: a stub React component library shared by both `web` and `docs` applications
-- `@repo/eslint-config`: `eslint` configurations (includes `eslint-config-next` and `eslint-config-prettier`)
-- `@repo/typescript-config`: `tsconfig.json`s used throughout the monorepo
-
-Each package/app is 100% [TypeScript](https://www.typescriptlang.org/).
-
-### Utilities
-
-This Turborepo has some additional tools already setup for you:
-
-- [TypeScript](https://www.typescriptlang.org/) for static type checking
-- [ESLint](https://eslint.org/) for code linting
-- [Prettier](https://prettier.io) for code formatting
-
-### Build
-
-To build all apps and packages, run the following command:
+## Project Structure
 
 ```
-cd my-turborepo
-
-# With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended)
-turbo build
-
-# Without [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation), use your package manager
-npx turbo build
-yarn dlx turbo build
-pnpm exec turbo build
+Drawlify/
+├── apps/
+│   ├── frontend/          # Next.js app
+│   │   ├── app/           # App router pages
+│   │   ├── components/    # React components
+│   │   └── draw/          # Canvas engine (Game, CanvasManager, InputHandler, etc.)
+│   ├── http-backend/      # Express REST API (auth, rooms, shapes)
+│   └── ws-backend/        # WebSocket server (real-time sync)
+├── packages/
+│   ├── db/                # Prisma client + schema
+│   ├── backend-common/    # Shared JWT secret config
+│   ├── common/            # Shared Zod validation schemas
+│   └── typescript-config/ # Shared tsconfig
+├── docker-compose.yml
+├── render.yaml
+└── vercel.json
 ```
 
-You can build a specific package by using a [filter](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters):
+## Getting Started
 
-```
-# With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended)
-turbo build --filter=docs
+### Prerequisites
 
-# Without [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation), use your package manager
-npx turbo build --filter=docs
-yarn exec turbo build --filter=docs
-pnpm exec turbo build --filter=docs
-```
+- Node.js 22.12+
+- pnpm 9+
+- PostgreSQL database (or [Neon](https://neon.tech) free tier)
 
-### Develop
+### 1. Clone and install
 
-To develop all apps and packages, run the following command:
-
-```
-cd my-turborepo
-
-# With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended)
-turbo dev
-
-# Without [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation), use your package manager
-npx turbo dev
-yarn exec turbo dev
-pnpm exec turbo dev
+```bash
+git clone https://github.com/Ravichandra531/DRAWLIFY.git
+cd DRAWLIFY
+pnpm install
 ```
 
-You can develop a specific package by using a [filter](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters):
+### 2. Set up environment variables
 
-```
-# With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended)
-turbo dev --filter=web
-
-# Without [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation), use your package manager
-npx turbo dev --filter=web
-yarn exec turbo dev --filter=web
-pnpm exec turbo dev --filter=web
+```bash
+cp .env.example .env
 ```
 
-### Remote Caching
+Edit `.env`:
 
-> [!TIP]
-> Vercel Remote Cache is free for all plans. Get started today at [vercel.com](https://vercel.com/signup?/signup?utm_source=remote-cache-sdk&utm_campaign=free_remote_cache).
-
-Turborepo can use a technique known as [Remote Caching](https://turborepo.dev/docs/core-concepts/remote-caching) to share cache artifacts across machines, enabling you to share build caches with your team and CI/CD pipelines.
-
-By default, Turborepo will cache locally. To enable Remote Caching you will need an account with Vercel. If you don't have an account you can [create one](https://vercel.com/signup?utm_source=turborepo-examples), then enter the following commands:
-
-```
-cd my-turborepo
-
-# With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended)
-turbo login
-
-# Without [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation), use your package manager
-npx turbo login
-yarn exec turbo login
-pnpm exec turbo login
+```env
+DATABASE_URL="postgresql://user:password@host/dbname?sslmode=require"
+JWT_SECRET="your-secret-key"
+NEXT_PUBLIC_HTTP_BACKEND="http://localhost:3001"
+NEXT_PUBLIC_WS_URL="ws://localhost:8080"
 ```
 
-This will authenticate the Turborepo CLI with your [Vercel account](https://vercel.com/docs/concepts/personal-accounts/overview).
+Also create `apps/http-backend/.env` and `apps/ws-backend/.env` with:
 
-Next, you can link your Turborepo to your Remote Cache by running the following command from the root of your Turborepo:
-
-```
-# With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended)
-turbo link
-
-# Without [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation), use your package manager
-npx turbo link
-yarn exec turbo link
-pnpm exec turbo link
+```env
+DATABASE_URL="..."
+JWT_SECRET="..."
 ```
 
-## Useful Links
+### 3. Set up the database
 
-Learn more about the power of Turborepo:
+```bash
+cd packages/db
+npx prisma db push
+npx prisma generate
+```
 
-- [Tasks](https://turborepo.dev/docs/crafting-your-repository/running-tasks)
-- [Caching](https://turborepo.dev/docs/crafting-your-repository/caching)
-- [Remote Caching](https://turborepo.dev/docs/core-concepts/remote-caching)
-- [Filtering](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters)
-- [Configuration Options](https://turborepo.dev/docs/reference/configuration)
-- [CLI Usage](https://turborepo.dev/docs/reference/command-line-reference)
+### 4. Run in development
+
+```bash
+# From repo root — starts all services
+pnpm dev
+```
+
+Or run individually:
+
+```bash
+# Terminal 1 — HTTP backend (port 3001)
+pnpm --filter http-backend dev
+
+# Terminal 2 — WebSocket backend (port 8080)
+pnpm --filter ws-backend dev
+
+# Terminal 3 — Frontend (port 3000)
+pnpm --filter frontend dev
+```
+
+Open [http://localhost:3000](http://localhost:3000).
+
+## API Reference
+
+### Auth
+
+| Method | Endpoint | Description |
+|---|---|---|
+| POST | `/signup` | Create account with username, email, password |
+| POST | `/login` | Sign in, returns JWT token |
+| GET | `/auth/google` | Initiate Google OAuth flow |
+| GET | `/auth/google/callback` | Google OAuth callback |
+
+### Rooms
+
+| Method | Endpoint | Description |
+|---|---|---|
+| POST | `/room` | Create a new board (auth required) |
+| GET | `/room/:slug` | Get room by slug |
+
+### Shapes
+
+| Method | Endpoint | Description |
+|---|---|---|
+| GET | `/shapes/:roomId` | Get all shapes for a room |
+| POST | `/shapes/:roomId` | Upsert shapes (auth required) |
+
+## Deployment
+
+### Docker (local / VPS)
+
+```bash
+cp .env.example .env
+# fill in your values
+
+docker compose build \
+  --build-arg NEXT_PUBLIC_HTTP_BACKEND=https://your-api.com \
+  --build-arg NEXT_PUBLIC_WS_URL=wss://your-ws.com
+
+docker compose up -d
+```
+
+### Render + Vercel (production)
+
+The repo includes `render.yaml` for one-click Render deployment and `vercel.json` for Vercel.
+
+**Render** (http-backend + ws-backend):
+1. New → Blueprint → connect repo → Render reads `render.yaml`
+2. Add env vars: `DATABASE_URL`, `JWT_SECRET`, `BACKEND_URL`, `FRONTEND_URL`
+3. For Google OAuth also add: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`
+
+**Vercel** (frontend):
+1. Import repo → Root Directory: leave blank
+2. Add env vars: `NEXT_PUBLIC_HTTP_BACKEND`, `NEXT_PUBLIC_WS_URL`
+3. Node.js version: 22.x
+
+## Environment Variables
+
+| Variable | Where | Description |
+|---|---|---|
+| `DATABASE_URL` | Backend | PostgreSQL connection string |
+| `JWT_SECRET` | Backend | Secret for signing JWT tokens |
+| `GOOGLE_CLIENT_ID` | http-backend | Google OAuth client ID |
+| `GOOGLE_CLIENT_SECRET` | http-backend | Google OAuth client secret |
+| `BACKEND_URL` | http-backend | Public URL of the http-backend |
+| `FRONTEND_URL` | http-backend | Public URL of the frontend |
+| `NEXT_PUBLIC_HTTP_BACKEND` | Frontend | HTTP backend URL (baked at build time) |
+| `NEXT_PUBLIC_WS_URL` | Frontend | WebSocket backend URL (baked at build time) |
+
+## Canvas Architecture
+
+The canvas engine lives in `apps/frontend/draw/` and is split into focused classes:
+
+- **`Game`** — orchestrates all managers, loads existing shapes on init
+- **`CanvasManager`** — renders shapes, handles pan, hit-testing, resize handles
+- **`InputHandler`** — mouse events, tool dispatch, move/resize logic
+- **`TextInputManager`** — floating textarea for text tool
+- **`NetworkManager`** — batches and sends shapes over WebSocket
+- **`ShapeStore`** — in-memory shape map with soft deletes
+- **`ToolManager`** — active tool registry
+- **`Tool`** — individual tool implementations (rect, circle, arrow, etc.)
+
+## License
+
+MIT
