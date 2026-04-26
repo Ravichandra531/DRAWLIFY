@@ -11,7 +11,13 @@ import { prisma, Prisma } from "@repo/db";
 const app = express();
 
 app.use(express.json());
-app.use(cors());
+app.use(cors({
+  origin: [
+    'https://drawlify-frontend.vercel.app',
+    'http://localhost:3000',
+  ],
+  credentials: true,
+}));
 
 app.post("/signup", async (req, res) => {
     const parsedData = SignUpSchema.safeParse(req.body);
