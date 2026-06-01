@@ -3,15 +3,20 @@
   "version": "1.0.0",
   "description": "",
   "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "exports": {
     ".": {
       "import": "./dist/index.js",
       "types": "./dist/index.d.ts"
+    },
+    "./client": {
+      "import": "./dist/generated/prisma/index.js",
+      "types": "./dist/generated/prisma/index.d.ts"
     }
   },
   "scripts": {
     "generate": "prisma generate --schema=./prisma/schema.prisma",
-    "build": "prisma generate --schema=./prisma/schema.prisma && tsc && cp -r src/generated dist/",
+    "build": "prisma generate --schema=./prisma/schema.prisma && rm -rf dist tsconfig.tsbuildinfo && tsc && cp -r src/generated dist/",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "devDependencies": {

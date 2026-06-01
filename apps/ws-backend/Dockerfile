@@ -16,6 +16,9 @@ RUN pnpm install --frozen-lockfile
 FROM deps AS builder
 RUN npm install -g turbo@latest
 COPY . .
+# dist/ is dockerignored; stale tsbuildinfo must not skip emitting outputs
+RUN find /app -name 'tsconfig.tsbuildinfo' -delete 2>/dev/null || true
+ENV TURBO_FORCE=true
 RUN pnpm run build --filter=ws-backend...
 
 # ── Run from builder so workspace symlinks remain intact ─────────────────────

@@ -10,7 +10,7 @@
     }
   },
   "scripts": {
-    "build": "tsc -b",
+    "build": "rm -rf dist tsconfig.tsbuildinfo && tsc -b",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "devDependencies": {

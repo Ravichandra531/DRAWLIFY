@@ -12,19 +12,19 @@ export declare const NullTypes: {
  *
  * @see https://www.prisma.io/docs/concepts/components/prisma-client/working-with-fields/working-with-json-fields#filtering-on-a-json-field
  */
-export declare const DbNull: import("@prisma/client/runtime/client").DbNullClass;
+export declare const DbNull: import("@prisma/client-runtime-utils").DbNullClass;
 /**
  * Helper for filtering JSON entries that have JSON `null` values (not empty on the db)
  *
  * @see https://www.prisma.io/docs/concepts/components/prisma-client/working-with-fields/working-with-json-fields#filtering-on-a-json-field
  */
-export declare const JsonNull: import("@prisma/client/runtime/client").JsonNullClass;
+export declare const JsonNull: import("@prisma/client-runtime-utils").JsonNullClass;
 /**
  * Helper for filtering JSON entries that are `Prisma.DbNull` or `Prisma.JsonNull`
  *
  * @see https://www.prisma.io/docs/concepts/components/prisma-client/working-with-fields/working-with-json-fields#filtering-on-a-json-field
  */
-export declare const AnyNull: import("@prisma/client/runtime/client").AnyNullClass;
+export declare const AnyNull: import("@prisma/client-runtime-utils").AnyNullClass;
 export declare const ModelName: {
     readonly User: "User";
     readonly Room: "Room";
