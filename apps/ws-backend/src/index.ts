@@ -1,6 +1,7 @@
 import { WebSocket, WebSocketServer } from "ws";
 import jwt from "jsonwebtoken";
-import { prisma, Prisma } from "@repo/db";
+import { prisma } from "@repo/db";
+import type { Prisma } from "@repo/db";
 import "dotenv/config";
 
 import { JWT_SECRET } from "@repo/backend-common/config";
